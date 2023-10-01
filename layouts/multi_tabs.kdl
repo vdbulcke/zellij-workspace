@@ -1,0 +1,42 @@
+layout {
+    tab name="My Tab name"{
+        
+        floating_panes {
+
+    		// floating lf 
+    		pane   focus=false {
+    			// single command running inside the floating pane
+    			// command "lf"
+                name "file picker"
+        		command "zsh" 
+        		args "-ic" "lf"
+    			start_suspended true
+                
+    		}
+    		// floating terminal
+    		pane  focus=false {
+                name "Terminal"
+    		}
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:compact-bar"
+        }
+    	pane split_direction="vertical" focus=true {
+            		
+    	}
+		pane size=2 borderless=true {
+			plugin location="zellij:status-bar"
+		}
+    }
+   
+    tab name="Some other tab"  {
+        
+        pane size=1 borderless=true {
+            plugin location="zellij:compact-bar"
+        }
+    	pane split_direction="horizontal" focus=true {
+            pane
+            pane
+    	}
+    }  
+}
