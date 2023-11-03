@@ -2,7 +2,23 @@
 
 A [Zellij](https://zellij.dev) plugin for opening single or multi tabs [layouts](https://zellij.dev/documentation/layouts) within an existing zellij session. 
 
-![Demo](./img/zellij-workspace.png)
+
+
+## Why?
+
+For example if you are using a terminal text editor (helix, neovim, etc), you can use [zellij layouts](https://zellij.dev/documentation/layouts) to open mulitple repo in your editor in separate tabs. 
+
+`zellij-workspace` allows to list all of your layouts in a  `.zellij-workspace` file, fuzzy find layout, and apply the layout to the existing session. 
+
+Select a layout: 
+
+![Layouts](./img/zellij-ws.png)
+
+Apply layout to session: 
+ 
+![Session](./img/zellij-wokspaces.png)
+
+
 
 
 ## Requirements
