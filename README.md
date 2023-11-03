@@ -16,7 +16,7 @@ Select a layout:
 
 Apply layout to session: 
  
-![Session](./img/zellij-wokspaces.png)
+![Session](./img/zellij-workspaces.png)
 
 
 
