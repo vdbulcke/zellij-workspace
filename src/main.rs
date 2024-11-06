@@ -10,6 +10,7 @@ use std::io::{self, BufRead};
 use std::path::Path;
 // use sprintf::sprintf;use std::fs::read_to_string;
 
+#[derive(Default)]
 struct State {
     error: Option<String>,
     input: String,
@@ -20,21 +21,69 @@ struct State {
     fz_matcher: SkimMatcherV2,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            error: None,
-            userspace_configuration: BTreeMap::default(),
-            input: String::default(),
-            input_cusror_index: 0,
-            layout: Vec::default(),
-            layout_match: None,
-            fz_matcher: SkimMatcherV2::default(),
-        }
-    }
-}
+// impl Default for State {
+//     fn default() -> Self {
+//         Self {
+//             error: None,
+//             userspace_configuration: BTreeMap::default(),
+//             input: String::default(),
+//             input_cusror_index: 0,
+//             layout: Vec::default(),
+//             layout_match: None,
+//             fz_matcher: SkimMatcherV2::default(),
+//         }
+//     }
+// }
 
 impl State {
+    fn handle_key_event(&mut self, key: KeyWithModifier) -> bool {
+        let mut should_render = true;
+        match key.bare_key {
+            BareKey::Enter => {
+                if self.open_tab_layout() {
+                    should_render = false;
+                    hide_self();
+                } else {
+                    should_render = true;
+                }
+            }
+            BareKey::Backspace => {
+                if self.remove_input_at_index() {
+                    // update fuzzy find result
+                    self.fuzzy_find_layout();
+                }
+                should_render = true;
+            }
+            BareKey::Left => {
+                if self.input_cusror_index > 0 {
+                    self.input_cusror_index -= 1;
+                }
+                should_render = true;
+            }
+            BareKey::Right => {
+                if self.input_cusror_index < self.input.len() {
+                    self.input_cusror_index += 1;
+                }
+                should_render = true;
+            }
+            BareKey::Esc => {
+                self.close();
+                should_render = true;
+            }
+            BareKey::Char('c') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.close();
+                should_render = true;
+            }
+            BareKey::Char(c) => {
+                if self.insert_input_at_index(c) {
+                    self.fuzzy_find_layout();
+                }
+                should_render = true;
+            }
+            _ => (),
+        }
+        should_render
+    }
     /// close current plugins and its hepler pane
     fn close(&self) {
         close_plugin_pane(get_plugin_ids().plugin_id);
@@ -65,7 +114,7 @@ impl State {
             let path = Path::new(&layout_path);
 
             // Open the path in read-only mode, returns `io::Result<File>`
-            let layout_opt = match read_to_string(&path) {
+            let layout_opt = match read_to_string(path) {
                 Err(err) => {
                     self.error = Some(err.to_string());
                     None
@@ -80,7 +129,7 @@ impl State {
             }
         }
 
-        return false;
+        false
         // new_tabs_with_layout(layout);
     }
 
@@ -99,7 +148,7 @@ impl State {
         } else if self.input_cusror_index == 0 {
             self.input.remove(0);
         }
-        return false;
+        false
     }
 
     /// remove_input_at_index  removes char at the
@@ -121,7 +170,7 @@ impl State {
             self.input.insert(0, c);
             self.input_cusror_index += 1;
         }
-        return false;
+        false
     }
 
     /// print the input prompt
@@ -133,7 +182,7 @@ impl State {
                 "{} {}{}",
                 prompt,
                 "┃".bold().white(),
-                "Fuzzy find command".dimmed().italic().to_string(),
+                "Fuzzy find command".dimmed().italic(),
             );
         } else {
             self.print_non_empty_input_prompt(prompt);
@@ -141,24 +190,24 @@ impl State {
     }
 
     fn print_non_empty_input_prompt(&self, prompt: String) {
-        if self.input_cusror_index == self.input.len() {
-            println!(
-                "{} {}{}",
-                prompt,
-                self.input.dimmed().to_string(),
-                "┃".bold().white(),
-            );
-        } else if self.input_cusror_index < self.input.len() {
-            let copy = self.input.clone();
-            let (before_curs, after_curs) = copy.split_at(self.input_cusror_index);
+        match self.input_cusror_index.cmp(&self.input.len()) {
+            std::cmp::Ordering::Equal => {
+                println!("{} {}{}", prompt, self.input.dimmed(), "┃".bold().white(),);
+            }
+            std::cmp::Ordering::Less => {
+                let copy = self.input.clone();
+                let (before_curs, after_curs) = copy.split_at(self.input_cusror_index);
 
-            println!(
-                "{} {}{}{}",
-                prompt,
-                before_curs.dimmed().to_string(),
-                "┃".bold().white(),
-                after_curs.dimmed().to_string()
-            );
+                println!(
+                    "{} {}{}{}",
+                    prompt,
+                    before_curs.dimmed(),
+                    "┃".bold().white(),
+                    after_curs.dimmed()
+                );
+            }
+
+            std::cmp::Ordering::Greater => (),
         }
     }
 }
@@ -191,13 +240,11 @@ impl ZellijPlugin for State {
         let filename = "/host/.zellij-workspace".to_owned();
         if let Ok(lines) = read_lines(filename) {
             // Consumes the iterator, returns an (Optional) String
-            for line in lines {
-                if let Ok(cmd) = line {
-                    // ignore commented lines starting with '#'
-                    // or empty line
-                    if !cmd.trim_start().starts_with("#") && !cmd.trim_start().is_empty() {
-                        self.layout.push(cmd);
-                    }
+            for layout in lines.map_while(Result::ok) {
+                // ignore commented lines starting with '#'
+                // or empty line
+                if !layout.trim_start().starts_with('#') && !layout.trim_start().is_empty() {
+                    self.layout.push(layout);
                 }
             }
         }
@@ -207,59 +254,19 @@ impl ZellijPlugin for State {
 
     fn update(&mut self, event: Event) -> bool {
         let mut should_render = false;
-        match event {
-            // Event::TabUpdate(tab_info) => {
-            //     // keep track of focused to tab in order
-            //     // to find panes in active tab
-            //     if let Some(position) = get_focused_tab(&tab_info) {
-            //         self.focused_tab_pos = position;
-            //     }
-            //     should_render = true;
-            // }
-            // Event::PaneUpdate(pane_manifest) => {
-            //     // keep track of pane id of the launcher pane
-            //     // in order to close it later
-            //     should_render = false;
-            // }
-            Event::Key(Key::Char('\n')) => {
-                if self.open_tab_layout() {
-                    should_render = false;
-                    hide_self();
-                } else {
-                    should_render = true;
-                }
-            }
-            Event::Key(Key::Backspace) => {
-                if self.remove_input_at_index() {
-                    // update fuzzy find result
-                    self.fuzzy_find_layout();
-                }
-                should_render = true;
-            }
-            Event::Key(Key::Char(c)) => {
-                if self.insert_input_at_index(c) {
-                    self.fuzzy_find_layout();
-                }
-                should_render = true;
-            }
-            Event::Key(Key::Left) => {
-                if self.input_cusror_index > 0 {
-                    self.input_cusror_index -= 1;
-                }
-                should_render = true;
-            }
-            Event::Key(Key::Right) => {
-                if self.input_cusror_index < self.input.len() {
-                    self.input_cusror_index += 1;
-                }
-                should_render = true;
-            }
-            Event::Key(Key::Esc | Key::Ctrl('c')) => {
-                self.close();
-                should_render = true;
-            }
-            _ => (),
-        };
+
+        // NOTE: uncomment if multiple event match
+        // match event {
+        //     Event::Key(key) => {
+        //         should_render = self.handle_key_event(key);
+        //     }
+        //     _ => (),
+        // };
+
+        // suppress warning single match
+        if let Event::Key(key) = event {
+            should_render = self.handle_key_event(key);
+        }
 
         should_render
     }
@@ -271,7 +278,7 @@ impl ZellijPlugin for State {
         if let Some(err) = &self.error {
             println!("Error: {}", color_bold(RED, err))
         } else {
-            println!("");
+            println!();
         }
 
         count += 1;
@@ -283,36 +290,36 @@ impl ZellijPlugin for State {
 
         // layout fuzzy finder
         if let Some(m) = &self.layout_match {
-            println!("");
+            println!();
             println!(" $ {}", m);
-            println!("");
+            println!();
 
             count += 3;
         } else {
-            println!("");
-            println!("-> {}", "Selected layout".dimmed().to_string());
-            println!("");
+            println!();
+            println!("-> {}", "Selected layout".dimmed());
+            println!();
             count += 3;
         }
         println!(" Available layouts: ");
 
         count += 1;
         for l in self.layout.iter() {
-            if let Some(_) = self.fz_matcher.fuzzy_match(l, &self.input) {
+            if self.fz_matcher.fuzzy_match(l, &self.input).is_some() {
                 // limits display of layout
                 // based on available rows in pane
                 // with arbitrary buffer for safety
                 if count >= rows - 4 {
-                    println!(" - {}", "...".dimmed().to_string());
+                    println!(" - {}", "...".dimmed());
                     break;
                 }
-                println!(" - {}", l.dimmed().to_string());
+                println!(" - {}", l.dimmed());
                 count += 1;
             }
         }
 
         // Key binding view
-        println!("");
+        println!();
         println!(
             "  <{}> <{}> Close Plugin",
             color_bold(WHITE, "Esc"),
@@ -320,7 +327,7 @@ impl ZellijPlugin for State {
         );
 
         if debug.is_some_and(|x| x == "true") {
-            println!("input: {}", self.input.to_string());
+            println!("input: {}", self.input);
 
             println!("Cursor: {}", self.input_cusror_index);
             println!("len: {}", self.input.len());

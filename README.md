@@ -25,6 +25,14 @@ Apply layout to session:
 
 Zellij version `v0.38.0` or later.
 
+
+
+| Zellij    | zellij-workspace    |
+| --------- | ------------------- |
+| `v0.38.x` | `v0.1.0`            |
+| `v0.41.1` | `v0.2.0`            |
+
+
 ### Zellij Plugin Permission 
 
 | Permission               | Why                                         |
