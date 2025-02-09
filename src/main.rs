@@ -13,6 +13,8 @@ use std::path::Path;
 #[derive(Default)]
 struct State {
     error: Option<String>,
+    current_session: Option<String>,
+    replace_current_session: bool,
     input: String,
     input_cusror_index: usize,
     userspace_configuration: BTreeMap<String, String>,
@@ -123,7 +125,39 @@ impl State {
             };
 
             if let Some(layout) = layout_opt {
-                new_tabs_with_layout(&layout);
+                // default
+                // if not in_palce just apply new tabs
+                // in current session
+                if !self.replace_current_session {
+                    new_tabs_with_layout(&layout);
+                    return true;
+                }
+
+                // when in_place configure apply layout to current session
+                if let Some(current) = self.current_session.clone() {
+                    // rename current
+                    rename_session("zellij_wp_delete_me");
+
+                    // race condition bug ??
+                    // even after renaming current session
+                    // plugin crash if switch_session_with_layout()
+                    // uses the same current name
+                    let mut new_name = "zwp:".to_owned();
+                    new_name.push_str(&current);
+                    // re-create a new session with the same name
+                    // but apply the layout
+                    switch_session_with_layout(
+                        Some(&new_name),
+                        LayoutInfo::Stringified(layout),
+                        None,
+                    );
+
+                    // clean up old session
+                    kill_sessions(&["zellij_wp_delete_me"]);
+                    delete_dead_session("zellij_wp_delete_me");
+                } else {
+                    switch_session_with_layout(None, LayoutInfo::Stringified(layout), None);
+                }
 
                 return true;
             }
@@ -232,6 +266,7 @@ impl ZellijPlugin for State {
             EventType::TabUpdate,
             EventType::PaneUpdate,
             EventType::Key,
+            EventType::SessionUpdate,
         ]);
 
         // File .zellij-workspace must exist in the current path (zellij cwd dir is mounted as /host)
@@ -249,6 +284,12 @@ impl ZellijPlugin for State {
             }
         }
 
+        self.replace_current_session = self
+            .userspace_configuration
+            .get("replace_current_session")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+
         rename_plugin_pane(get_plugin_ids().plugin_id, "WorkspaceManager");
     }
 
@@ -256,17 +297,25 @@ impl ZellijPlugin for State {
         let mut should_render = false;
 
         // NOTE: uncomment if multiple event match
-        // match event {
-        //     Event::Key(key) => {
-        //         should_render = self.handle_key_event(key);
-        //     }
-        //     _ => (),
-        // };
+        match event {
+            Event::Key(key) => {
+                should_render = self.handle_key_event(key);
+            }
+            Event::SessionUpdate(session_infos, _) => {
+                if let Some(current) = session_infos
+                    .into_iter()
+                    .find(|session_info| session_info.is_current_session)
+                {
+                    self.current_session = Some(current.name);
+                }
+            }
+            _ => (),
+        };
 
-        // suppress warning single match
-        if let Event::Key(key) = event {
-            should_render = self.handle_key_event(key);
-        }
+        // // suppress warning single match
+        // if let Event::Key(key) = event {
+        //     should_render = self.handle_key_event(key);
+        // }
 
         should_render
     }
@@ -331,6 +380,10 @@ impl ZellijPlugin for State {
 
             println!("Cursor: {}", self.input_cusror_index);
             println!("len: {}", self.input.len());
+            println!(
+                "session: {}",
+                self.current_session.clone().unwrap_or("None".to_owned())
+            );
 
             println!(
                 "{} {:#?}",
