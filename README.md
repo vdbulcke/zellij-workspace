@@ -67,7 +67,7 @@ Example of a `.ghost` file:
 * Download `zellij-workspace.wasm` binary from [release page](https://github.com/vdbulcke/zellij-workspace/releases).
 * Verify binary signature with cosign (see instruction bellow)
 * copy binary to zellij plugin dir: 
-     - `mv target/wasm32-wasi/release/zellij-workspace.wasm ~/.config/zellij/plugins/`
+     - `mv target/wasm32-wasip1/release/zellij-workspace.wasm ~/.config/zellij/plugins/`
 
 
 #### Validate Signature With Cosign
@@ -94,12 +94,12 @@ Verified OK
 
 ### Build from source
 
-> WARNING: requires to have rust installed and wasm `rustup target add wasm32-wasi`
+> WARNING: requires to have rust installed and wasm `rustup target add wasm32-wasip1`
 
 * `git clone git@github.com:vdbulcke/zellij-workspace.git`
 * `cd zellij-workspace`
 * `cargo build --release`
-* `mv target/wasm32-wasi/release/zellij-workspace.wasm ~/.config/zellij/plugins/`
+* `mv target/wasm32-wasip1/release/zellij-workspace.wasm ~/.config/zellij/plugins/`
 
 
 
