@@ -7,13 +7,15 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use std::collections::BTreeMap;
 use std::fs::{read_to_string, File};
 use std::io::{self, BufRead};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 // use sprintf::sprintf;use std::fs::read_to_string;
 
 #[derive(Default)]
 struct State {
     error: Option<String>,
     current_session: Option<String>,
+    /// Used to preserve the current directory when switching to a new session.
+    current_dir: Option<PathBuf>,
     replace_current_session: bool,
     input: String,
     input_cusror_index: usize,
@@ -133,6 +135,10 @@ impl State {
                     return true;
                 }
 
+                // Use the saved current directory, because right now there is no built-in way to
+                // auto-preserve it when switching a session.
+                let current_dir = self.current_dir.clone();
+
                 // when in_place configure apply layout to current session
                 if let Some(current) = self.current_session.clone() {
                     // rename current
@@ -149,14 +155,14 @@ impl State {
                     switch_session_with_layout(
                         Some(&new_name),
                         LayoutInfo::Stringified(layout),
-                        None,
+                        current_dir,
                     );
 
                     // clean up old session
                     kill_sessions(&["zellij_wp_delete_me"]);
                     delete_dead_session("zellij_wp_delete_me");
                 } else {
-                    switch_session_with_layout(None, LayoutInfo::Stringified(layout), None);
+                    switch_session_with_layout(None, LayoutInfo::Stringified(layout), current_dir);
                 }
 
                 return true;
@@ -289,6 +295,8 @@ impl ZellijPlugin for State {
             .get("replace_current_session")
             .map(|v| v == "true")
             .unwrap_or(false);
+
+        self.current_dir = Some(get_plugin_ids().initial_cwd);
 
         rename_plugin_pane(get_plugin_ids().plugin_id, "WorkspaceManager");
     }
