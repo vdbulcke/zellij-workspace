@@ -112,7 +112,8 @@ shared_except "locked" {
     bind "Ctrl y" {
         LaunchOrFocusPlugin "file:~/.config/zellij/plugins/zellij-workspace.wasm" {
             floating true
-
+            
+            replace_current_session true // default false: replace current session with selected layout
             debug false                     // display debug info, config, parse command etc
         }
     }
