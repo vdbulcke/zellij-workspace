@@ -140,27 +140,14 @@ impl State {
                 let current_dir = self.current_dir.clone();
 
                 // when in_place configure apply layout to current session
-                if let Some(current) = self.current_session.clone() {
-                    // rename current
-                    rename_session("zellij_wp_delete_me");
-
-                    // race condition bug ??
-                    // even after renaming current session
-                    // plugin crash if switch_session_with_layout()
-                    // uses the same current name
-                    let mut new_name = "zwp:".to_owned();
-                    new_name.push_str(&current);
-                    // re-create a new session with the same name
-                    // but apply the layout
-                    switch_session_with_layout(
-                        Some(&new_name),
+                if self.current_session.is_some() {
+                    override_layout(
                         LayoutInfo::Stringified(layout),
-                        current_dir,
+                        false,
+                        false,
+                        false,
+                        BTreeMap::new(),
                     );
-
-                    // clean up old session
-                    kill_sessions(&["zellij_wp_delete_me"]);
-                    delete_dead_session("zellij_wp_delete_me");
                 } else {
                     switch_session_with_layout(None, LayoutInfo::Stringified(layout), current_dir);
                 }
