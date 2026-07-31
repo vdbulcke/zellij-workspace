@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 
 if [ -z "$1" ]; then 
@@ -31,10 +32,13 @@ fi
 TAG=$2
 
 
+echo "Downloading cosign bundle..."
+curl -L "https://github.com/vdbulcke/zellij-workspace/releases/download/${TAG}/cosign.bundle" -o /tmp/cosign.bundle
+
 echo "Checking Signature for version: ${TAG}"
+
 cosign verify-blob \
-  --certificate "https://github.com/vdbulcke/zellij-workspace/releases/download/${TAG}/cosign_cert.pem" \
-  --signature "https://github.com/vdbulcke/zellij-workspace/releases/download/${TAG}/cosign.sig"  \
+  --bundle /tmp/cosign.bundle  \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com  \
   --certificate-identity  "https://github.com/vdbulcke/zellij-workspace/.github/workflows/release.yaml@refs/tags/${TAG}"  \
   ${artifcat_path}
