@@ -2,6 +2,7 @@ name: release
 
 
 on:
+  workflow_dispatch:
   # push: 
   #   tags: 
   #     - 'v*'
@@ -38,7 +39,7 @@ jobs:
 
 
       - name: Sign binary
-        run: cosign sign-blob --oidc-issuer=https://token.actions.githubusercontent.com --output-certificate=cosign_cert.pem --output-signature=cosign.sig target/wasm32-wasip1/release/zellij-workspace.wasm
+        run: cosign sign-blob --bundle=cosign.bundle target/wasm32-wasip1/release/zellij-workspace.wasm
         env:
           ## Cosign ENV Vars
           COSIGN_EXPERIMENTAL: 1
@@ -50,5 +51,4 @@ jobs:
         with:
           files: |
             target/wasm32-wasip1/release/zellij-workspace.wasm
-            cosign.sig
-            cosign_cert.pem
+            cosign.bundle
