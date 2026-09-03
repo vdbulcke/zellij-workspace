@@ -72,7 +72,7 @@ Example of a `.zellij-workspace` file:
 
 #### Validate Signature With Cosign
 
-Make sure you have `cosign` installed locally (see [Cosign Install](https://docs.sigstore.dev/cosign/installation/)).
+Make sure you have `cosign` installed locally (see [Cosign Install](https://docs.sigstore.dev/cosign/system_config/installation/)).
 
 Then you can use the `./verify_signature.sh` in this repo: 
 
